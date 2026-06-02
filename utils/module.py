@@ -69,13 +69,22 @@ class HelpNavigator:
         start_index = (self.current_page - 1) * 10
         end_index = start_index + 10
         page_modules = self.module_list[start_index:end_index]
-        text = "<b>Help for <a href=https://t.me/Moonub_chat>Moon-Userbot</a></b>\n"
-        text += f"For more help on how to use a command, type <code>{prefix}help [module]</code>\n\n"
-        text += f"Help Page No: {self.current_page}/{self.total_pages}\n\n"
+        
+        text = "✨ <b>MOON USERBOT HELP</b> ✨\n"
+        text += "──────────────────────────────\n"
+        text += f"📖 Halaman: <b>{self.current_page}/{self.total_pages}</b>\n"
+        text += "──────────────────────────────\n\n"
+        
         for module_name in page_modules:
             commands = modules_help[module_name]
-            text += f"<b>• {module_name.title()}:</b> {', '.join([f'<code>{prefix + cmd_name.split()[0]}</code>' for cmd_name in commands.keys()])}\n"
-        text += f"\n<b>The number of modules in the userbot: {len(modules_help)}</b>"
+            cmd_list = " • ".join([f"<code>{prefix + cmd_name.split()[0]}</code>" for cmd_name in commands.keys()])
+            text += f"🔹 <b>{module_name.title()}</b>\n  {cmd_list}\n\n"
+            
+        text += "──────────────────────────────\n"
+        text += f"📊 Modul: <b>{len(modules_help)}</b> | Perintah: <b>{sum(len(v) for v in modules_help.values())}</b>\n"
+        text += "──────────────────────────────\n"
+        text += f"[ ◀️ <code>{prefix}pp</code> ]   [ ❌ <code>{prefix}pq</code> ]   [ ▶️ <code>{prefix}pn</code> ]"
+        
         await message.edit(text, disable_web_page_preview=True)
 
     def next_page(self) -> bool:
@@ -142,14 +151,18 @@ class HelpNavigator:
         if not results:
             return None
 
-        text = f"<b>Search results for</b> <code>{query}</code>:\n\n"
+        text = "🔍 <b>HASIL PENCARIAN</b>\n"
+        text += "──────────────────────────────\n"
+        text += f"🔎 Kata kunci: <code>{query}</code>\n"
+        text += "──────────────────────────────\n\n"
+        
         for match_type, name, module_name, _score in results:
             if match_type == "module":
                 cmds = modules_help[module_name]
-                cmd_list = ", ".join(
+                cmd_list = " • ".join(
                     f"<code>{prefix}{c.split()[0]}</code>" for c in cmds
                 )
-                text += f"<b>• {module_name}</b> (module): {cmd_list}\n"
+                text += f"🔹 <b>Modul: {module_name.title()}</b>\n  {cmd_list}\n\n"
             else:
                 desc = ""
                 for cmd_key, cmd_desc in modules_help[module_name].items():
@@ -157,11 +170,11 @@ class HelpNavigator:
                         desc = cmd_desc
                         break
                 text += (
-                    f"  ◦ <code>{prefix}{name}</code>"
-                    f" — <i>{desc}</i>"
-                    f"  [<code>{module_name}</code>]\n"
+                    f"🔸 <code>{prefix}{name}</code>\n"
+                    f"   └─ <i>{desc}</i> [<code>{module_name}</code>]\n\n"
                 )
 
-        text += f"\n<b>Tip:</b> <code>{prefix}help [name]</code> for full details"
+        text += "──────────────────────────────\n"
+        text += f"💡 <b>Tips:</b> Ketik <code>{prefix}help [nama]</code> untuk bantuan detail"
         await message.edit(text, disable_web_page_preview=True)
         return True

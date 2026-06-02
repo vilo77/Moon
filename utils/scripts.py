@@ -323,14 +323,18 @@ def format_module_help(module_name: str, full=True):
     commands = modules_help[module_name]
 
     help_text = (
-        f"<b>Help for |{module_name}|\n\nUsage:</b>\n" if full else "<b>Usage:</b>\n"
+        f"✨ <b>MODUL: {module_name.upper()}</b> ✨\n──────────────────────────────\n"
+        if full
+        else "<b>Penggunaan:</b>\n"
     )
 
     for command, desc in commands.items():
         cmd = command.split(maxsplit=1)
         args = " <code>" + cmd[1] + "</code>" if len(cmd) > 1 else ""
-        help_text += f"<code>{prefix}{cmd[0]}</code>{args} — <i>{desc}</i>\n"
+        help_text += f">• <code>{prefix}{cmd[0]}</code>{args} ─ <i>{desc}</i>\n"
 
+    if full:
+        help_text += "──────────────────────────────"
     return help_text
 
 
@@ -338,15 +342,17 @@ def format_small_module_help(module_name: str, full=True):
     commands = modules_help[module_name]
 
     help_text = (
-        f"<b>Help for |{module_name}|\n\nCommands list:\n"
+        f"✨ <b>MODUL: {module_name.upper()}</b> ✨\n──────────────────────────────\n<b>Daftar Perintah:</b>\n"
         if full
-        else "<b>Commands list:\n"
+        else "<b>Daftar Perintah:</b>\n"
     )
     for command, _desc in commands.items():
         cmd = command.split(maxsplit=1)
         args = " <code>" + cmd[1] + "</code>" if len(cmd) > 1 else ""
-        help_text += f"<code>{prefix}{cmd[0]}</code>{args}\n"
-    help_text += f"\nGet full usage: <code>{prefix}help {module_name}</code></b>"
+        help_text += f">• <code>{prefix}{cmd[0]}</code>{args}\n"
+    
+    if full:
+        help_text += f"\n💡 Bantuan lengkap: <code>{prefix}help {module_name}</code>\n──────────────────────────────"
 
     return help_text
 
