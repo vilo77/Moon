@@ -14,222 +14,140 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from pyrogram import Client, filters
+import asyncio
+
+from prettytable import PrettyTable
+from pyrogram import Client, enums, filters
 from pyrogram.types import Message
 
 from utils import modules_help, prefix
-from utils.module import ModuleManager
-from utils.scripts import format_module_help, with_reply
+from utils.scripts import ReplyCheck
 
-module_manager = ModuleManager.get_instance()
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  HELPFUL TEXT STYLES (Minimalist & Modern)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-def format_header(text: str) -> str:
-    """Formatted header minimalis modern"""
-    return f"✨ <b>{text}</b> ✨\n──────────────────────────────"
+CMD_HELP = modules_help
 
 
-def format_subheader(text: str) -> str:
-    """Subheader dengan garis tipis"""
-    return f"🔹 {text}"
+def split_list(lst, n):
+    return [lst[i : i + n] for i in range(0, len(lst), n)]
 
 
-def format_command(cmd: str, desc: str, module: str = None) -> str:
-    """Format command yang rapi dan minimalis"""
-    line = f"• <code>{cmd}</code>"
-    if desc:
-        line += f" ─ <i>{desc}</i>"
-    if module:
-        line += f"\n  └─ Modul: {module}"
-    return line
+async def edit_or_reply(message: Message, *args, **kwargs) -> Message:
+    xyz = (
+        message.edit_text
+        if bool(message.from_user and message.from_user.is_self or message.outgoing)
+        else (message.reply_to_message or message).reply_text
+    )
+    return await xyz(*args, **kwargs)
 
 
-def format_separator() -> str:
-    """Garis pemisah"""
-    return "──────────────────────────────"
+@Client.on_message(filters.command(["help", "helpme"], prefix) & filters.me)
+async def module_help(client: Client, message: Message):
+    cmd = message.command
+    help_arg = ""
+    bot_username = (await client.get_me()).username
+    if len(cmd) > 1:
+        help_arg = " ".join(cmd[1:])
+    elif not message.reply_to_message and len(cmd) == 1:
+        await message.edit("⚡️")
+        try:
+            nice = await client.get_inline_bot_results(bot=bot_username, query="helper")
+            await asyncio.gather(
+                message.delete(),
+                client.send_inline_bot_result(
+                    message.chat.id, nice.query_id, nice.results[0].id
+                ),
+            )
+        except BaseException as e:
+            print(f"{e}")
+            ac = PrettyTable()
+            ac.header = False
+            ac.title = "Moon-Userbot Plugins"
+            ac.align = "l"
+            for x in split_list(sorted(CMD_HELP.keys()), 2):
+                ac.add_row([x[0], x[1] if len(x) >= 2 else None])
+            xx = await client.send_message(
+                message.chat.id,
+                f"```{str(ac)}```\n• @TheSupportChat × @TheUpdatesChannel •",
+                reply_to_message_id=ReplyCheck(message),
+            )
+            await xx.reply(
+                f"**Usage:** `{prefix}help broadcast` **To View Module Information**"
+            )
+            return
+
+    if help_arg:
+        if help_arg in CMD_HELP:
+            commands: dict = CMD_HELP[help_arg]
+            this_command = f"──「 **Help For {str(help_arg).upper()}** 」──\n\n"
+            for x in commands:
+                this_command += f"  •  **Command:** `{prefix}{str(x)}`\n  •  **Function:** `{str(commands[x])}`\n\n"
+            this_command += "© @TheUpdatesChannel"
+            await edit_or_reply(
+                message, this_command, parse_mode=enums.ParseMode.MARKDOWN
+            )
+        else:
+            await edit_or_reply(
+                message,
+                f"`{help_arg}` **Not a Valid Module Name.**",
+            )
 
 
-def format_footer() -> str:
-    """Footer minimalis"""
-    return "──────────────────────────────"
+@Client.on_message(filters.command(["plugins", "modules"], prefix) & filters.me)
+async def module_helper(client: Client, message: Message):
+    cmd = message.command
+    help_arg = ""
+    if len(cmd) > 1:
+        help_arg = " ".join(cmd[1:])
+    elif message.reply_to_message and len(cmd) == 1:
+        help_arg = message.reply_to_message.text
+    elif not message.reply_to_message and len(cmd) == 1:
+        ac = PrettyTable()
+        ac.header = False
+        ac.title = "Moon-Userbot Plugins"
+        ac.align = "l"
+        for x in split_list(sorted(CMD_HELP.keys()), 2):
+            ac.add_row([x[0], x[1] if len(x) >= 2 else None])
+        await edit_or_reply(
+            message, f"```{str(ac)}```\n• @TheSupportChat × @TheUpdatesChannel •"
+        )
+        await message.reply(
+            f"**Usage**:`{prefix}help broadcast` **To View Module details**"
+        )
+
+    if help_arg:
+        if help_arg in CMD_HELP:
+            commands: dict = CMD_HELP[help_arg]
+            this_command = f"──「 **Help For {str(help_arg).upper()}** 」──\n\n"
+            for x in commands:
+                this_command += f"  •  **Command:** `{prefix}{str(x)}`\n  •  **Function:** `{str(commands[x])}`\n\n"
+            this_command += "© @TheUpdatesChannel"
+            await edit_or_reply(
+                message, this_command, parse_mode=enums.ParseMode.MARKDOWN
+            )
+        else:
+            await edit_or_reply(
+                message,
+                f"`{help_arg}` **Not a Valid Module Name.**",
+            )
 
 
-def format_module_list() -> str:
-    """Format daftar semua module"""
-    lines = [format_header("MOON USERBOT — DAFTAR PERINTAH")]
-    
-    sorted_modules = sorted(modules_help.keys())
-    
-    for module in sorted_modules:
-        commands = modules_help[module]
-        cmd_count = len(commands)
-        
-        lines.append(f"\n🔹 <b>{module.upper()}</b> ({cmd_count} perintah)")
-        cmd_list = " • ".join([f"<code>{prefix}{cmd_name.split()[0]}</code>" for cmd_name in commands.keys()])
-        lines.append(f"  {cmd_list}")
-        
-    lines.append("\n" + format_separator())
-    lines.append(f"📊 Modul: <b>{len(sorted_modules)}</b> | Perintah: <b>{sum(len(v) for v in modules_help.values())}</b>")
-    lines.append(format_separator())
-    
-    return "\n".join(lines)
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  HELP COMMAND
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Client.on_message(filters.command(["help", "h"], prefix) & filters.me)
-async def help_cmd(_, message: Message):
-    if not module_manager.help_navigator:
-        await message.edit("✨ <b>Sistem bantuan sedang diinisialisasi...</b>")
-        return
-
-    # Help utama (semua module)
-    if len(message.command) == 1:
-        await module_manager.help_navigator.send_page(message)
-        return
-    
-    # Help untuk module tertentu
-    elif message.command[1].lower() in modules_help:
-        module_name = message.command[1].lower()
-        commands = modules_help[module_name]
-        
-        lines = [
-            format_header(f"MODUL: {module_name.upper()}"),
-            f"📦 Total Perintah: <b>{len(commands)}</b>",
-            "──────────────────────────────\n",
-        ]
-        
-        for cmd_name, desc in commands.items():
-            cmd_base = cmd_name.split()[0]
-            cmd_args = cmd_name.split(maxsplit=1)
-            
-            cmd_str = f"{prefix}{cmd_base}"
-            if len(cmd_args) > 1:
-                cmd_str += f" <code>{cmd_args[1]}</code>"
-            
-            lines.append(f"• <code>{cmd_str}</code>")
-            lines.append(f"  └─ <i>{desc}</i>\n")
-        
-        lines.append("──────────────────────────────")
-        lines.append(f"[ ◀️ Kembali ke Menu Utama: <code>{prefix}help</code> ]")
-        
-        await message.edit("\n".join(lines))
-        return
-
-    # Help untuk command spesifik
+def add_command_help(module_name, commands):
+    if module_name in CMD_HELP.keys():
+        command_dict = CMD_HELP[module_name]
     else:
-        command_name = message.command[1].lower()
-        module_found = False
-        
-        for module_name, commands in modules_help.items():
-            for cmd_full, desc in commands.items():
-                if cmd_full.split()[0] == command_name:
-                    cmd_parts = cmd_full.split(maxsplit=1)
-                    cmd_str = f"{prefix}{cmd_parts[0]}"
-                    if len(cmd_parts) > 1:
-                        cmd_str += f" <code>{cmd_parts[1]}</code>"
-                    
-                    lines = [
-                        format_header(f"PERINTAH: {prefix.upper()}{command_name.upper()}"),
-                        f"📂 Modul: <b>{module_name.title()}</b>",
-                        f"📝 Deskripsi: <i>{desc}</i>",
-                        f"💡 Penggunaan: <code>{cmd_str}</code>",
-                        "──────────────────────────────",
-                        f"[ ◀️ Kembali ke Menu Utama: <code>{prefix}help</code> ]"
-                    ]
-                    
-                    module_found = True
-                    await message.edit("\n".join(lines))
-                    return
-        
-        # Search fallback
-        if not module_found:
-            found = await module_manager.help_navigator.send_search_results(message, command_name)
-            if not found:
-                await message.edit(
-                    f"⚠️ <b>TIDAK DITEMUKAN</b>\n"
-                    f"──────────────────────────────\n"
-                    f"Modul/perintah <code>{command_name}</code> tidak ditemukan.\n\n"
-                    f"💡 Gunakan <code>{prefix}help</code> untuk daftar lengkap."
-                )
+        command_dict = {}
+
+    for x in commands:
+        for y in x:
+            if y is not x:
+                command_dict[x[0]] = x[1]
+
+    CMD_HELP[module_name] = command_dict
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  SEARCH COMMAND
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Client.on_message(filters.command("hs", prefix) & filters.me)
-async def search_cmd(_, message: Message):
-    if not module_manager.help_navigator:
-        await message.edit("✨ <b>Sistem bantuan sedang diinisialisasi...</b>")
-        return
-
-    if len(message.command) < 2:
-        await message.edit(
-            f"💡 <b>PENGGUNAAN</b>\n"
-            f"──────────────────────────────\n"
-            f"Ketik: <code>{prefix}hs [kata_kunci]</code>"
-        )
-        return
-
-    query = " ".join(message.command[1:]).lower()
-    found = await module_manager.help_navigator.send_search_results(message, query)
-    
-    if not found:
-        await message.edit(
-            f"⚠️ <b>TIDAK DITEMUKAN</b>\n"
-            f"──────────────────────────────\n"
-            f"Tidak ada hasil untuk: <code>{query}</code>"
-        )
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  NAVIGATION COMMANDS
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@Client.on_message(filters.command(["pn", "pp", "pq"], prefix) & filters.me)
-@with_reply
-async def handle_navigation(_, message: Message):
-    if not module_manager.help_navigator:
-        await message.edit("✨ <b>Sistem bantuan sedang diinisialisasi...</b>")
-        return
-
-    reply_message = message.reply_to_message
-    if reply_message and ("MOON USERBOT HELP" in reply_message.text or "Halaman:" in reply_message.text):
-        cmd = message.command[0].lower()
-        
-        if cmd == "pn":
-            if module_manager.help_navigator.next_page():
-                await module_manager.help_navigator.send_page(reply_message)
-                return await message.delete()
-            await message.edit("⚠️ <b>Tidak ada halaman lagi</b>")
-        
-        elif cmd == "pp":
-            if module_manager.help_navigator.prev_page():
-                await module_manager.help_navigator.send_page(reply_message)
-                return await message.delete()
-            await message.edit("⚠️ <b>Ini adalah halaman pertama</b>")
-        
-        elif cmd == "pq":
-            await reply_message.delete()
-            return await message.edit("❌ <b>Menu bantuan ditutup</b>")
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  MODULE HELP REGISTRATION
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+# Register self help
 modules_help["help"] = {
     "help [module/command]": "View all modules / specific module help",
-    "h [module/command]": "Quick help alias",
-    "hs [query]": "Search commands by keyword",
-    "pn": "Next page (reply to help)",
-    "pp": "Previous page (reply to help)",
-    "pq": "Quit help (reply to help)",
+    "helpme [module/command]": "Quick help alias",
+    "plugins": "List all plugins",
+    "modules": "List all modules",
 }

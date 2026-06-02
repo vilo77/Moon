@@ -10,3 +10,4 @@ dulwich==1.2.5
 aiohttp
 aiofiles
 bottle
+prettytable
